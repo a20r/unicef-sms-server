@@ -1,10 +1,13 @@
 
 """ Base url for the API calls """
-BASE = "http://as245.host.cs.st-andrews.ac.uk:8080/"
+BASE = "http://bowtie.mobi:8080/"
 
 """ Used to get data that is ready to be sent """
-TO_SEND = BASE_URL + "to_send/"
+SEND = BASE + "send/"
+
+""" Checks if there is anything new to send """
+CHECK = BASE + "check/"
 
 """ Used to pass a message from the SMS server to the main server """
-PASS_MESSAGE = BASE_URL + "pass/"
+RECEIVE = BASE + "receive/"
 

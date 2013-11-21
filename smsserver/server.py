@@ -3,6 +3,8 @@ import android
 import threading
 import os
 import smsreader as reader
+import database as db
+import pprint
 
 class SMSServer(reader.SMSReader):
     """
@@ -13,62 +15,50 @@ class SMSServer(reader.SMSReader):
     def __init__(self):
         super(SMSServer, self).__init__()
 
-    def parseMessage(self, smsString):
+    def outgoingThread():
         """
-        Parses message and uses the necessary engine
-
-        SMS String formating:
-            <Query Type>:<Query>
+        Thread target that pulls data from the REST api on the server
+        and broadcasts messages out to phones via SMS
         """
 
-        if not ":" in smsString:
-            return None
+        while True:
+            messageDict = db.toSend()
+            if messageDict:
+                for number in messageDict:
+                    threading.Thread(
+                        target = lambda: droid.smsSend(
+                            number, messageDict[number]
+                        )
+                    ).start()
 
-        queryType = smsString.split(":")[0].lower()
-        #phoneNumber = smsString.split(":")[1]
-        query = smsString[smsString.index(':') + 1:].lstrip().rstrip()
-        print "QUERY", query
-
-        #try:
-        queryResponse = self.searchEngineDict[queryType](
-            query
-        ).sendResponse()
-        print "RESPONSE", queryResponse
-        #except KeyError:
-            #return None
-        return queryResponse
-
-    def parseAndMakeRequest(self, phoneNumber, smsString):
+    def incomingThread():
         """
-        Used for thread creation. Returns a function that is set
-        as the target in a thread
+        Constantly reads the inbox for new messages and sends them to the
+        server with the associated phone number for processing and storage
         """
 
-        def retFunc():
-            queryResponse = self.parseMessage(smsString)
-            if queryResponse:
-                self.droid.smsSend(phoneNumber, queryResponse)
-        return retFunc
+        while True:
+            if self.droid.smsGetMessageCount(True).result > 0:
+                messageDict = self.readMessages()
+                pprint.pprint(messageDict)
+                for numberStr in messageDict:
+                    db.passSMS(phoneNumber, smsString)
+
 
     def start(self):
         """
         Starts the main process
         """
-        while True:
-            if self.droid.smsGetMessageCount(True).result > 0:
-                messageDict = self.readMessages()
-                for numberStr in messageDict:
-                    threading.Thread(
-                        target = self.parseAndMakeRequest(
-                            numberStr, messageDict[numberStr]
-                        )
-                    ).start()
+
+        #threading.Thread(target = outgoingThread).start()
+        threading.Thread(target = incomingThread).start()
+        os.join()
 
 if __name__ == "__main__":
     #test_messageReader()
     try:
         sServer = SMSServer()
         sServer.start()
-        os.join()
     except Exception as e:
         print e
+        exit()
