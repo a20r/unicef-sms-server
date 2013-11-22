@@ -5,6 +5,7 @@ import os
 import smsreader as reader
 import database as db
 import pprint
+import time
 
 class SMSServer(reader.SMSReader):
     """
@@ -15,23 +16,27 @@ class SMSServer(reader.SMSReader):
     def __init__(self):
         super(SMSServer, self).__init__()
 
-    def outgoingThread():
+    def outgoingThread(self):
         """
         Thread target that pulls data from the REST api on the server
         and broadcasts messages out to phones via SMS
         """
 
         while True:
-            messageDict = db.toSend()
-            if messageDict:
-                for number in messageDict:
-                    threading.Thread(
-                        target = lambda: droid.smsSend(
-                            number, messageDict[number]
-                        )
-                    ).start()
+            try:
+                numbers, message = db.toSend()
+                for number in numbers:
+                    # threading.Thread(
+                    #     target = lambda: droid.smsSend(
+                    #         number, message
+                    #     )
+                    # ).start()
+                    self.droid.smsSend(number, message)
+            except Exception as e:
+                print e
+            time.sleep(2)
 
-    def incomingThread():
+    def incomingThread(self):
         """
         Constantly reads the inbox for new messages and sends them to the
         server with the associated phone number for processing and storage
@@ -42,7 +47,7 @@ class SMSServer(reader.SMSReader):
                 messageDict = self.readMessages()
                 pprint.pprint(messageDict)
                 for numberStr in messageDict:
-                    db.passSMS(phoneNumber, smsString)
+                    db.passSMS(numberStr, messageDict[numberStr])
 
 
     def start(self):
@@ -50,12 +55,16 @@ class SMSServer(reader.SMSReader):
         Starts the main process
         """
 
-        #threading.Thread(target = outgoingThread).start()
-        threading.Thread(target = incomingThread).start()
-        os.join()
+        outThread = threading.Thread(target = self.outgoingThread)
+        inThread = threading.Thread(target = self.incomingThread)
+
+        outThread.start()
+        inThread.start()
+
+        outThread.join()
+        inThread.join()
 
 if __name__ == "__main__":
-    #test_messageReader()
     try:
         sServer = SMSServer()
         sServer.start()
