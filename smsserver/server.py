@@ -23,18 +23,18 @@ class SMSServer(reader.SMSReader):
         """
 
         while True:
-            try:
-                numbers, message = db.toSend()
-                for number in numbers:
-                    # threading.Thread(
-                    #     target = lambda: droid.smsSend(
-                    #         number, message
-                    #     )
-                    # ).start()
-                    self.droid.smsSend(number, message)
-            except Exception as e:
-                print e
-            time.sleep(2)
+            messageList = db.toSend()
+            print messageList
+            if messageList:
+                for messageDict in messageList:
+                    for number in messageDict["numbers"]:
+                        # threading.Thread(
+                        #     target = lambda: droid.smsSend(
+                        #         number, message
+                        #     )
+                        # ).start()
+                        self.droid.smsSend(number, messageDict["message"])
+            time.sleep(3)
 
     def incomingThread(self):
         """
@@ -61,8 +61,8 @@ class SMSServer(reader.SMSReader):
         outThread.start()
         inThread.start()
 
-        outThread.join()
-        inThread.join()
+        #outThread.join()
+        #inThread.join()
 
 if __name__ == "__main__":
     try:
